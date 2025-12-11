@@ -9,10 +9,10 @@ use Illuminate\Http\Request;
 class AddViewController extends BaseController
 {
  public function addView(Request $request){
-    try{
     $this->validateRequest($request, [
         'post_id' => 'required|integer|exists:post,id',
     ]);
+    try{
     $user = auth('api')->user();
     if(!$user){
         return $this->Response(false, 'Unauthorized',401);

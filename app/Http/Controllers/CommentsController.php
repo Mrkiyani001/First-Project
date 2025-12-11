@@ -14,13 +14,13 @@ class CommentsController extends BaseController
 {
     public function create(Request $request)
     {
+        $this->validateRequest($request, [
+            'post_id' => 'required|integer|exists:post,id',
+            'comment' => 'required|string',
+            'attachments' => 'array',
+            'attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,avi,mov,pdf,doc,docx|max:51200',
+        ]);
         try {
-            $this->validateRequest($request, [
-                'post_id' => 'required|integer|exists:post,id',
-                'comment' => 'required|string',
-                'attachments' => 'array',
-                'attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,avi,mov,pdf,doc,docx|max:51200',
-            ]);
             $user = auth('api')->user();
             if (! $user) {
                 return $this->unauthorized();
@@ -67,15 +67,15 @@ class CommentsController extends BaseController
     }
     public function update(Request $request)
     {
+        $this->validateRequest($request, [
+            'id' => 'required|integer|exists:comments,id',
+            'comment' => 'required|string',
+            'attachments' => 'array',
+            'attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,avi,mov,pdf,doc,docx|max:51200', // max 50MB each
+            'remove_attachments' => 'nullable|array',
+            'remove_attachments.*' => 'integer|exists:attachments,id',
+        ]);
         try {
-            $this->validateRequest($request, [
-                'id' => 'required|integer|exists:comments,id',
-                'comment' => 'required|string',
-                'attachments' => 'array',
-                'attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,avi,mov,pdf,doc,docx|max:51200', // max 50MB each
-                'remove_attachments' => 'nullable|array',
-                'remove_attachments.*' => 'integer|exists:attachments,id',
-            ]);
             $user = auth('api')->user();
             if (!$user) {
                 return $this->unauthorized();
@@ -131,10 +131,10 @@ class CommentsController extends BaseController
     }
     public function destroy(Request $request)
     {
+        $this->validateRequest($request, [
+            'id' => 'required|integer|exists:comments,id',
+        ]);
         try {
-            $this->validateRequest($request, [
-                'id' => 'required|integer|exists:comments,id',
-            ]);
             $user = auth('api')->user();
             if (!$user) {
                 return $this->unauthorized();
@@ -179,10 +179,10 @@ class CommentsController extends BaseController
     }
     public function get_comments_by_post(Request $request)
     {
+        $this->validateRequest($request, [
+            'post_id' => 'required|integer|exists:post,id',
+        ]);
         try {
-            $this->validateRequest($request, [
-                'post_id' => 'required|integer|exists:post,id',
-            ]);
             $user = auth('api')->user();
             if (!$user) {
                 return $this->unauthorized();

@@ -8,14 +8,17 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
+
+use App\Services\ModerationService;
 
 class AddPost implements ShouldQueue
 {
     use Queueable, Dispatchable, SerializesModels, InteractsWithQueue;
-public $user_id;
-public $title;
-public $body;
-public $attachments;
+    public $user_id;
+    public $title;
+    public $body;
+    public $attachments;
     /**
      * Create a new job instance.
      */
@@ -30,7 +33,7 @@ public $attachments;
     /**
      * Execute the job.
      */
-    public function handle(): void
+    public function handle(ModerationService $moderationService): void
     {
         $post = Post::create([
             'user_id' => $this->user_id,
@@ -39,6 +42,14 @@ public $attachments;
             'created_by' => $this->user_id,
             'updated_by' => $this->user_id,
         ]);
+
+        // Run Moderation Logic
+        try {
+            $moderationService->moderate($post, $this->body);
+        } catch (\Exception $e) {
+            Log::error("Moderation Failed for Post ID {$post->id}: " . $e->getMessage());
+        }
+
         if (empty($this->attachments)) return;
         try {
             foreach ($this->attachments as $filename) {
@@ -58,7 +69,7 @@ public $attachments;
                 ]);
             }
         } catch (\Exception $e) {
-            \Log::error("Failed to upload attachments for post ID " . $post->id . ": " . $e->getMessage());
+            Log::error("Failed to upload attachments for post ID " . $post->id . ": " . $e->getMessage());
         }
     }
 }

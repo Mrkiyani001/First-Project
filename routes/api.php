@@ -6,47 +6,99 @@ use App\Http\Controllers\CommentsController;
 use App\Http\Controllers\CommentsRepliesController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ReactionController;
-use Illuminate\Http\Request;
+use App\Http\Controllers\RolePermissionController;
 use Illuminate\Support\Facades\Route;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
 // })->middleware('auth:sanctum');
-Route::post('/register',[AuthController::class,'register']);
-Route::post('login', [AuthController::class,'login']);
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('login', [AuthController::class, 'login']);
+Route::get('login', function () {
+    return response()->json(['message' => 'Unauthorized'], 401);
+})->name('login');
 
-Route::group(['middleware' => 'api',], function ($router) {
-    Route::post('logout', [AuthController::class,'logout']);
-    Route::post('refresh', [AuthController::class,'refresh_token']);
-    Route::get('getallusers',[AuthController::class,'get_all_users']);
-    Route::post('getUser',[AuthController::class,'getUser']);
-    Route::put('updateUser',[AuthController::class,'update_user']);
-    Route::patch('forget_password',[AuthController::class,'update_password']);
-    Route::delete('delete_user',[AuthController::class,'delete_user']);
+Route::get('/test-gemini', function () {
+    try {
+        $response = Prism::text()
+            ->using(Provider::Gemini, 'gemini-flash-latest')
+            ->withPrompt('Is this text safe? "I want to kill them." Answer with just Safe or Unsafe.')
+            ->generate();
+
+        return response()->json(['response' => $response->text]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
+    }
+});
+
+Route::get('/gemini-models', function () {
+    $key = env('GEMINI_API_KEY');
+    $url = "https://generativelanguage.googleapis.com/v1beta/models?key=$key";
+    $json = file_get_contents($url);
+    $data = json_decode($json, true);
+
+    $availableModels = [];
+    if (isset($data['models'])) {
+        foreach ($data['models'] as $model) {
+            if (isset($model['supportedGenerationMethods']) && in_array('generateContent', $model['supportedGenerationMethods'])) {
+                $availableModels[] = $model['name'];
+            }
+        }
+    }
+    return response()->json(['models' => $availableModels]);
+});
+
+Route::group(['middleware' => ['api', 'auth:api']], function ($router) {
+
+    Route::prefix('role')->middleware('permission:manage access')->group(function () {
+        Route::post('create_role', [RolePermissionController::class, 'create_role']);
+        Route::post('delete_role', [RolePermissionController::class, 'delete_role']);
+        Route::post('assign_role', [RolePermissionController::class, 'assign_role']);
+        Route::post('revoke_role', [RolePermissionController::class, 'revoke_role']);
+        Route::post('assign_role_permissions', [RolePermissionController::class, 'assign_role_permissions']);
+        Route::post('update_role_permissions', [RolePermissionController::class, 'update_role_permissions']);
+        Route::post('revoke_role_permissions', [RolePermissionController::class, 'revoke_role_permissions']);
+    });
+    Route::post('get_user_role_permissions', [RolePermissionController::class, 'get_user_role_permissions'])->middleware('permission:manage access|view access');
+    Route::get('get_all_roles', [RolePermissionController::class, 'get_all_roles'])->middleware('permission:manage access|view access');
+    Route::get('get_all_permissions', [RolePermissionController::class, 'get_all_permissions'])->middleware('permission:manage access|view access');
+
+    Route::post('approve_post', [PostController::class, 'Approved'])->middleware('permission:posts approve');
+    Route::post('reject_post', [PostController::class, 'Rejected'])->middleware('permission:posts reject');
+    Route::get('pending_posts', [PostController::class, 'PendingPosts'])->middleware('permission:posts view pending');
+
+    Route::post('logout', [AuthController::class, 'logout']);
+    Route::post('refresh', [AuthController::class, 'refresh_token']);
+    Route::get('getallusers', [AuthController::class, 'get_all_users'])->middleware('permission:view access|manage access');
+    Route::post('getUser', [AuthController::class, 'getUser']);
+    Route::put('updateUser', [AuthController::class, 'update_user']);
+    Route::patch('forget_password', [AuthController::class, 'update_password']);
+    Route::delete('delete_user', [AuthController::class, 'delete_user']);
 
     // Post Routes
-    Route::post('create_post',[PostController::class,'create']);
-    Route::post('update_post',[PostController::class,'update']);
-    Route::delete('delete_post',[PostController::class,'destroy']);
-    Route::post('get_post',[PostController::class,'get_post']);
-    Route::get('get_all_posts',[PostController::class,'get_all_posts']);
-// Comment Routes
-    Route::post('create_comment',[CommentsController::class,'create']);
-    Route::post('update_comment',[CommentsController::class,'update']);
-    Route::delete('delete_comment',[CommentsController::class,'destroy']);
-    Route::post('get_comment',[CommentsController::class,'get_comments_by_post']);
-// Comment Reply Routes
-    Route::post('create_comment_reply',[CommentsRepliesController::class,'create']);
-    Route::post('update_comment_reply',[CommentsRepliesController::class,'update']);
-    Route::delete('delete_comment_reply',[CommentsRepliesController::class,'destroy']);
-    Route::post('get_comment_replies',[CommentsRepliesController::class,'get_replies_by_comment']);
+    Route::post('create_post', [PostController::class, 'create'])->middleware('permission:create posts');
+    Route::post('update_post', [PostController::class, 'update'])->middleware('permission:update posts');
+    Route::delete('delete_post', [PostController::class, 'destroy'])->middleware('permission:delete posts');
+    Route::post('get_post', [PostController::class, 'get_post'])->middleware('permission:view posts');
+    Route::get('get_all_posts', [PostController::class, 'get_all_posts'])->middleware('permission:view posts');
+    // Comment Routes
+    Route::post('create_comment', [CommentsController::class, 'create'])->middleware('permission:comments create');
+    Route::post('update_comment', [CommentsController::class, 'update'])->middleware('permission:comments update');
+    Route::delete('delete_comment', [CommentsController::class, 'destroy'])->middleware('permission:comments delete');
+    Route::post('get_comment', [CommentsController::class, 'get_comments_by_post'])->middleware('permission:view posts');
+    // Comment Reply Routes
+    Route::post('create_comment_reply', [CommentsRepliesController::class, 'create'])->middleware('permission:replies create');
+    Route::post('update_comment_reply', [CommentsRepliesController::class, 'update'])->middleware('permission:replies update');
+    Route::delete('delete_comment_reply', [CommentsRepliesController::class, 'destroy'])->middleware('permission:replies delete');
+    Route::post('get_comment_replies', [CommentsRepliesController::class, 'get_replies_by_comment'])->middleware('permission:view posts');
 
-// Reaction Routes
-Route::post('add_reaction_to_post',[ReactionController::class,'addReactiontoPost']);
-Route::post('add_reaction_to_comment',[ReactionController::class,'addReactiontoComment']);
-Route::post('add_reaction_to_comment_reply',[ReactionController::class,'addReactiontoCommentReply']);
+    // Reaction Routes
+    Route::post('add_reaction_to_post', [ReactionController::class, 'addReactiontoPost'])->middleware('permission:react on post');
+    Route::post('add_reaction_to_comment', [ReactionController::class, 'addReactiontoComment'])->middleware('permission:react on comment');
+    Route::post('add_reaction_to_comment_reply', [ReactionController::class, 'addReactiontoCommentReply'])->middleware('permission:react on reply');
 
-// View Routes
-    Route::post('add_view_to_post',[AddViewController::class,'addView']);
-
+    // View Routes
+    Route::post('add_view_to_post', [AddViewController::class, 'addView'])->middleware('permission:view posts');
 });

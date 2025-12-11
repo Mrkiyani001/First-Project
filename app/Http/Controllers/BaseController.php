@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class BaseController extends Controller
@@ -13,59 +15,61 @@ class BaseController extends Controller
         if ($Validator->fails()) {
 
             abort(response()->json([
-            'success' => false,
-            'message' => 'Validation Error.',
-            'errors'  => $Validator->errors()->first(),
-        ], 422));
+                'success' => false,
+                'message' => 'Validation Error.',
+                'errors'  => $Validator->errors()->first(),
+            ], 422));
+        }
+        return true;
     }
-    return true;
-}
-protected function respondWithToken($token ,$user)
+    protected function respondWithToken($token, $user)
     {
         return response()->json([
             'access_token' => $token,
             'token_type' => 'bearer',
             'expires_in' => auth('api')->factory()->getTTL() * 60,
-            'user'=>[
-                'id'=>$user->id,
-                'name'=>$user->name,
-                'email'=>$user->email,
-                
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'roles' => $user->getRoleNames(),
             ]
         ]);
     }
 
 
-public function upload($file ,$folder, $model){
-    $filename =time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
-    $filepath =$file->storeAs($folder,$filename,'public');
-    $extension = strtolower($file->getClientOriginalExtension());
-    $type = $this->getFileType($extension);
-    $model->attachments()->create([
-        'file_name'=>$filename,
-        'file_path'=>$filepath,
-        'file_type'=>$type,
-    ]);
-}
-private function getFileType($extension){
-    $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg'];
-    $documentExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'];
-    $videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv'];
-    $audioExtensions = ['mp3', 'wav', 'aac'];
-
-    if (in_array($extension, $imageExtensions)) {
-        return 'image';
-    } elseif (in_array($extension, $documentExtensions)) {
-        return 'document';
-    } elseif (in_array($extension, $videoExtensions)) {
-        return 'video';
-    } elseif (in_array($extension, $audioExtensions)) {
-        return 'audio';
-    } else {
-        return 'other';
+    public function upload($file, $folder, $model)
+    {
+        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+        $filepath = $file->storeAs($folder, $filename, 'public');
+        $extension = strtolower($file->getClientOriginalExtension());
+        $type = $this->getFileType($extension);
+        $model->attachments()->create([
+            'file_name' => $filename,
+            'file_path' => $filepath,
+            'file_type' => $type,
+        ]);
     }
-}
-public function Response(bool $success, string $message, $data = null, int $code = 200)
+    private function getFileType($extension)
+    {
+        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg'];
+        $documentExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'];
+        $videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv'];
+        $audioExtensions = ['mp3', 'wav', 'aac'];
+
+        if (in_array($extension, $imageExtensions)) {
+            return 'image';
+        } elseif (in_array($extension, $documentExtensions)) {
+            return 'document';
+        } elseif (in_array($extension, $videoExtensions)) {
+            return 'video';
+        } elseif (in_array($extension, $audioExtensions)) {
+            return 'audio';
+        } else {
+            return 'other';
+        }
+    }
+    public function Response(bool $success, string $message, $data = null, int $code = 200)
     {
         $response = [
             'success' => $success,
@@ -76,12 +80,11 @@ public function Response(bool $success, string $message, $data = null, int $code
         }
         return response()->json($response, $code);
     }
-    Public function unauthorized(){
-            return response()->json([
-                'success'=>false,
-                'message'=>'Unauthorized',
-            ],401);
-        
+    public function unauthorized()
+    {
+        return response()->json([
+            'success' => false,
+            'message' => 'Unauthorized',
+        ], 401);
     }
 }
-

@@ -16,92 +16,38 @@ class PermissionSeeder extends Seeder
     {
         // Define all permissions
         $all_permissions = [
-            'posts.view',
-            'posts.create',
-            'posts.update.own',
-            'posts.delete.own',
-            'posts.delete.any',
-            'posts.view.pending',
-            'posts.approve',
-            'posts.reject',
+            'view posts',
+            'create posts',
+            'update posts',
+            'delete posts',
+            'posts view pending',
+            'posts approve',
+            'posts reject',
+            'flagged post',
+            'dismiss flagged post',
             
-            'comments.create',
-            'comments.update.own',
-            'comments.delete.own',
-            'comments.delete.any',
+            'comments create',
+            'comments update',
+            'comments delete',
             
-            'replies.create',
-            'replies.update.own',
-            'replies.delete.own',
-            'replies.delete.any',
+            'replies create',
+            'replies update',
+            'replies delete',
+            'react on post',
+            'react on comment',
+            'react on reply',
             
-            'users.view',
-            'users.block',
-            'users.unblock',
-            
-            'reports.view',
-            'reports.resolve',
-            
-            'view roles',
-            'assign roles',
-            'view permissions',
-            'assign permissions',
+            'reports view',
+            'reports resolve',
+            'create email template',
+            'update email template',
+            'delete email template',
+            'view access page',
+            'manage access'
         ];
 
-        // Create all permissions
         foreach ($all_permissions as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'api']);
         }
-
-        // Define Role Permissions
-        $user_permissions = [
-            'posts.view',
-            'posts.create',
-            'posts.update.own',
-            'posts.delete.own',
-            'comments.create',
-            'comments.update.own',
-            'comments.delete.own',
-            'replies.create',
-            'replies.update.own',
-            'replies.delete.own',
-        ];
-
-        $moderator_permissions = array_merge($user_permissions, [
-            'posts.view.pending',
-            'posts.approve',
-            'posts.reject',
-            'users.view',
-            'users.block',
-            'users.unblock',
-        ]);
-
-        $admin_permissions = array_merge($moderator_permissions, [
-            'posts.delete.any',
-            'comments.delete.any',
-            'replies.delete.any',
-            'reports.view',
-            'reports.resolve',
-        ]);
-
-        $superadmin_permissions = array_merge($admin_permissions, [
-            'view roles',
-            'assign roles',
-            'view permissions',
-            'assign permissions',
-        ]);
-
-        // Create Roles and Assign Permissions
-        $user = Role::firstOrCreate(['name' => 'user', 'guard_name' => 'api']);
-        $user->syncPermissions($user_permissions);
-
-        $moderator = Role::firstOrCreate(['name' => 'moderator', 'guard_name' => 'api']);
-        $moderator->syncPermissions($moderator_permissions);
-
-        $admin = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'api']);
-        $admin->syncPermissions($admin_permissions);
-
-        $superadmin = Role::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'api']);
-        $superadmin->syncPermissions($superadmin_permissions);
     }
 }

@@ -17,29 +17,29 @@ class PostController extends BaseController
 {
     public function create(Request $request)
     {
+        $this->validateRequest($request, [
+            'title' => 'required|string|max:255',
+            'body' => 'required|string',
+            'attachments' => 'nullable|array',
+            'attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,avi,mov,pdf,doc,docx|max:51200',
+        ]);
         try {
-            $this->validateRequest($request, [
-                'title' => 'required|string|max:255',
-                'body' => 'required|string',
-                'attachments' => 'nullable|array',
-                'attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,avi,mov,pdf,doc,docx|max:51200',
-            ]);
             $user = auth('api')->user();
             // dd($user);
             if (!$user) {
                 return $this->unauthorized();
             }
-        $attachments = [];
-        $count = $request->hasFile('attachments') ? count($request->file('attachments')) : 0;
-        if($count > 0){
-        if($request->hasFile('attachments')){
-            foreach($request->file('attachments') as $file){
-                $filename = time()."_".$file->getClientOriginalName();
-                $file->move(public_path('posts'), $filename);
-                $attachments[] = $filename;
+            $attachments = [];
+            $count = $request->hasFile('attachments') ? count($request->file('attachments')) : 0;
+            if ($count > 0) {
+                if ($request->hasFile('attachments')) {
+                    foreach ($request->file('attachments') as $file) {
+                        $filename = time() . "_" . $file->getClientOriginalName();
+                        $file->move(public_path('posts'), $filename);
+                        $attachments[] = $filename;
+                    }
+                }
             }
-        }
-    }
             AddPost::dispatch(
                 $user->id,
                 $request->title,
@@ -49,39 +49,45 @@ class PostController extends BaseController
             return response()->json([
                 'success' => true,
                 'message' => 'Post creation in progress',
-                'data' => $attachments,
+                'data' => [
+                    'user' => $user->id,
+                    'title' => $request->title,
+                    'body' => $request->body,
+                    'attachments' => $attachments,
+
+                ]
             ], 202);
         } catch (\Exception $e) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $e->getMessage(),
-                ], 500);
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
         }
     }
     public function update(Request $request)
     {
+        $this->validateRequest($request, [
+            'id' => 'required|integer|exists:post,id',
+            'title' => 'required|string|max:255',
+            'body' => 'required|string',
+            'attachments' => 'nullable|array',
+            'attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,avi,mov,pdf,doc,docx|max:51200', // max 50MB each
+            'remove_attachments' => 'nullable|array',
+            'remove_attachments.*' => 'integer|exists:attachments,id',
+        ]);
         try {
-            $this->validateRequest($request, [
-                'id' => 'required|integer|exists:post,id',
-                'title' => 'required|string|max:255',
-                'body' => 'required|string',
-                'attachments' => 'nullable|array',
-                'attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,avi,mov,pdf,doc,docx|max:51200', // max 50MB each
-                'remove_attachments' => 'nullable|array',
-                'remove_attachments.*' => 'integer|exists:attachments,id',
-            ]);
             $user = auth('api')->user();
             if (!$user) {
                 return $this->unauthorized();
             }
             $post = Post::find($request->id);
-            if(!$post){
+            if (!$post) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Post not found',
                 ], 404);
             }
-            if($post->user_id != $user->id){
+            if ($post->user_id != $user->id) {
                 return $this->unauthorized();
             }
 
@@ -111,7 +117,6 @@ class PostController extends BaseController
                 'message' => 'Post update in progress',
                 'data' => $newuploadfiles,
             ], 202);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -121,10 +126,10 @@ class PostController extends BaseController
     }
     public function destroy(Request $request)
     {
+        $this->validateRequest($request, [
+            'id' => 'required|integer|exists:post,id',
+        ]);
         try {
-            $this->validateRequest($request, [
-                'id' => 'required|integer|exists:post,id',
-            ]);
             $user = auth('api')->user();
             if (!$user) {
                 return $this->unauthorized();
@@ -139,13 +144,13 @@ class PostController extends BaseController
             //     $post->delete();
             // }
             $post = Post::find($request->id);
-            if(!$post){
+            if (!$post) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Post not found',
                 ], 404);
             }
-            if($post->user_id != $user->id){
+            if ($post->user_id != $user->id) {
                 return $this->unauthorized();
             }
             DeletePost::dispatch(
@@ -162,15 +167,15 @@ class PostController extends BaseController
     }
     public function get_post(Request $request)
     {
+        $this->validateRequest($request, [
+            'id' => 'required|integer|exists:post,id',
+        ]);
         try {
-            $this->validateRequest($request, [
-                'id' => 'required|integer|exists:post,id',
-            ]);
             $user = auth('api')->user();
             if (!$user) {
                 return $this->unauthorized();
             }
-            $post = Post::find($request->id);
+            $post = Post::approved()->find($request->id);
             if (is_null($post)) {
                 return response()->json([
                     'success' => false,
@@ -197,7 +202,7 @@ class PostController extends BaseController
             if (!$user) {
                 return $this->unauthorized();
             }
-            $posts = Post::with('attachments', 'creator', 'updator', 'user')->get();
+            $posts = Post::approved()->with('attachments', 'creator', 'updator', 'user')->get();
             return response()->json([
                 'success' => true,
                 'data' => $posts,
@@ -209,5 +214,88 @@ class PostController extends BaseController
             ], 500);
         }
     }
-}
+    public function PendingPosts(){
+        try {
+            $user = auth('api')->user();
+            if (!$user) {
+                return $this->unauthorized();
+            }
+            $posts = Post::pending()->with('attachments', 'creator', 'updator', 'user')->get();
+            return response()->json([
+                'success' => true,
+                'data' => $posts,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    public function Approved(Request $request){
+        $this->validateRequest($request, [
+            'id' => 'required|integer|exists:post,id',
+        ]);
+        try {
+            $user = auth('api')->user();
+            if (!$user) {
+                return $this->unauthorized();
+            }
+            // $post = Post::find($request->id);
+            // dd($post);
+            // die;
+            // // Use withoutGlobalScopes to find pending posts hidden by strict moderation
+            $post = Post::withoutGlobalScopes()->find($request->id);
+            
+            if (!$post) {
+                 return response()->json([
+                    'success' => false,
+                    'message' => 'Post not found',
+                ], 404);
+            }
 
+            $post->markApproved();
+
+            return response()->json([
+                'success' => true,
+                'data' => $post,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    public function Rejected(Request $request){
+        $this->validateRequest($request, [
+            'id' => 'required|integer|exists:post,id',
+        ]);
+        try {
+            $user = auth('api')->user();
+            if (!$user) {
+                return $this->unauthorized();
+            }
+            $post = Post::withoutGlobalScopes()->find($request->id);
+            
+             if (!$post) {
+                 return response()->json([
+                    'success' => false,
+                    'message' => 'Post not found',
+                ], 404);
+            }
+            
+            $post->markRejected();
+
+            return response()->json([
+                'success' => true,
+                'data' => $post,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+}
