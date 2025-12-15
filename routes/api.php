@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CommentsController;
 use App\Http\Controllers\CommentsRepliesController;
 use App\Http\Controllers\PostController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReactionController;
 use App\Http\Controllers\RolePermissionController;
 use Illuminate\Support\Facades\Route;
@@ -69,6 +70,15 @@ Route::group(['middleware' => ['api', 'auth:api']], function ($router) {
     Route::post('reject_post', [PostController::class, 'Rejected'])->middleware('permission:posts reject');
     Route::get('pending_posts', [PostController::class, 'PendingPosts'])->middleware('permission:posts view pending');
 
+    // Profile 
+    Route::get('view/{id?}',[ProfileController::class, 'viewprofile']);
+    Route::post('update_profile', [ProfileController::class, 'updateProfile']);
+    Route::post('follow', [ProfileController::class, 'followUser']);
+    Route::post('unfollow', [ProfileController::class, 'unfollowUser']);
+    Route::post('fetch_followers', [ProfileController::class, 'fetchFollower']);
+    Route::post('fetch_following', [ProfileController::class, 'fetchFollowing']);
+
+    // User Routes
     Route::post('logout', [AuthController::class, 'logout']);
     Route::post('refresh', [AuthController::class, 'refresh_token']);
     Route::get('getallusers', [AuthController::class, 'get_all_users'])->middleware('permission:view access|manage access');

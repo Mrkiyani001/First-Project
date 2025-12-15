@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Dom\Comment;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -21,6 +22,7 @@ class User extends Authenticatable implements JWTSubject
         'name',
         'email',
         'password',
+        'show_email'
     ];
 
 
@@ -35,6 +37,7 @@ class User extends Authenticatable implements JWTSubject
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'show_email' => 'boolean',
         ];
     }
      public function getJWTIdentifier()
@@ -49,5 +52,25 @@ class User extends Authenticatable implements JWTSubject
     public function posts()
     {
         return $this->hasMany(Post::class);
+    }
+    public function followers()
+    {
+        return $this->belongsToMany(User::class,'followers','following_id','follower_id');
+    }
+    public function following()
+    {
+        return $this->belongsToMany(User::class,'followers','follower_id','following_id');
+    }
+    public function profile()
+    {
+        return $this->hasOne(Profile::class);
+    }
+    public function follow($user)
+    {
+        return $this->following()->attach($user);
+    }
+    public function unfollow($user)
+    {
+        return $this->following()->detach($user);
     }
 }

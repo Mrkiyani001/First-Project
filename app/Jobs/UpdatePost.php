@@ -81,7 +81,7 @@ public $attachments;
             ]);
         }
     }catch(\Exception $e){
-       \Log::error('Failed to upload attachments TO post');
+       Log::error('Failed to upload attachments TO post');
     }
         $post->refresh()->load('attachments','creator','updator','user');
 }
