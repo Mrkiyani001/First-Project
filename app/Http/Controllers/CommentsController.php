@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\AddComment;
 use App\Jobs\DeleteComment;
 use App\Jobs\UpdateComment;
+use App\Jobs\SendNotification; // Added Import Correctly
 use App\Models\Attachments;
 use App\Models\Post;
 use Illuminate\Http\Request;
@@ -42,6 +43,19 @@ class CommentsController extends BaseController
                 $comment,
                 $uploadFiles
             );
+
+            // Notification Logic
+            $post = Post::find($post_id);
+            if ($post && $post->user_id != $user->id) {
+                SendNotification::dispatch(
+                    $user->id,
+                    'New Comment',
+                    'User ' . $user->id . ' commented on your post.',
+                    $post->user_id,
+                    $post,
+                    'N'
+                );
+            }
             //     $comment = Comments::create([
             //         'post_id'=>$request->post_id,
             //         'user_id'=>$user->id,
@@ -88,7 +102,7 @@ class CommentsController extends BaseController
                     'message' => 'Comment not found',
                 ], 404);
             }
-            if($comment->user_id != $user->id){
+            if ($comment->user_id != $user->id) {
                 return $this->unauthorized();
             }
             $comment->fill([
@@ -140,13 +154,13 @@ class CommentsController extends BaseController
                 return $this->unauthorized();
             }
             $comment = Comments::find($request->id);
-            if(!$comment){
+            if (!$comment) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Comment not found',
                 ], 404);
             }
-            if($comment->user_id != $user->id){
+            if ($comment->user_id != $user->id) {
                 return $this->unauthorized();
             }
             DeleteComment::dispatch(
@@ -184,16 +198,19 @@ class CommentsController extends BaseController
         ]);
         try {
             $user = auth('api')->user();
+            $limit = (int) $request->input('limit', 10);
             if (!$user) {
                 return $this->unauthorized();
             }
             $comments = Comments::with('attachments', 'creator', 'updator', 'user', 'post')
                 ->where('post_id', $request->post_id)
-                ->get();
+                ->paginate($limit);
+
+            $data = $this->paginateData($comments, $comments->items());
             return response()->json([
                 'success' => true,
                 'message' => 'Comments retrieved successfully',
-                'data' => $comments,
+                'data' => $data,
             ], 200);
         } catch (\Exception $e) {
             return response()->json([

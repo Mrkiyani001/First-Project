@@ -66,4 +66,8 @@ class Post extends Model
     {
         return $this->morphMany(FlagAi::class, 'flaggable');
     }
+    public function notification()
+    {
+        return $this->morphMany(Notification::class, 'notifiable');
+    }
 }

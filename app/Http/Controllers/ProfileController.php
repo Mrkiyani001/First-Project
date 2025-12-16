@@ -8,6 +8,7 @@ use Exception;
 use Illuminate\Http\Request;
 
 use App\Models\Attachments; // Add this import
+use App\Jobs\SendNotification;
 
 class ProfileController extends BaseController
 {
@@ -163,7 +164,21 @@ class ProfileController extends BaseController
             if($user->following()->where('following_id', $request->user_id)->exists()){
                 return $this->Response(false, 'You are already following this user', null, 400);
             }
+
             $user->follow($request->user_id);
+
+            // Notification Logic
+            $followedUser = User::find($request->user_id);
+            if($followedUser){
+                 SendNotification::dispatch(
+                    $user->id,
+                    'New Follower',
+                    'User '.$user->id.' started following you.',
+                    $followedUser->id,
+                    $followedUser, // Notifiable is the User model
+                    'N'
+                );
+            }
             return $this->Response(true, 'User followed successfully', null);
         } catch (Exception $e) {
             return $this->Response(false, $e->getMessage(), null, 500);

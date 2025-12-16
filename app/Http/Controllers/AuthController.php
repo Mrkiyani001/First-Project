@@ -106,17 +106,20 @@ class AuthController extends BaseController
         }
     }
 
-    public function get_all_users()
+    public function get_all_users(Request $request)
     {
         try {
+            $limit = (int) $request->input('limit', 10);
             $user = auth('api')->user();
             if (!$user) {
                 return $this->unauthorized();
             }
-            $users = User::with('roles')->get();
+            $users = User::with('roles')->paginate($limit);
+
+            $data = $this->paginateData($users, $users->items());
             return response()->json([
                 'success' => true,
-                'data' => $users,
+                'data' => $data,
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -249,5 +252,29 @@ class AuthController extends BaseController
         }
         $token = auth('api')->refresh();
         return $this->respondWithToken($token, $user);
+    }
+    public function search_user(Request $request)
+    {
+        $this->validateRequest($request, [
+            'search' => 'required|string',
+        ]);
+        try {
+            $limit = (int) $request->input('limit', 10);
+            $user = auth('api')->user();
+            if (!$user) {
+                return $this->unauthorized();
+            }
+            $users = User::where('name', 'like', '%' . $request->search . '%')->paginate($limit);
+            $data = $this->paginateData($users, $users->items());
+            return response()->json([
+                'success' => true,
+                'data' => $data,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

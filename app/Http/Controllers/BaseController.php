@@ -87,4 +87,15 @@ class BaseController extends Controller
             'message' => 'Unauthorized',
         ], 401);
     }
+    public function paginateData($paginate, $data){
+        return [
+            'items' => $data,
+            'pagination' => [
+                'total' => $paginate->total(),
+                'per_page' => $paginate->perPage(),
+                'current_page' => $paginate->currentPage(),
+                'last_page' => $paginate->lastPage(),
+            ]
+        ];
+    }
 }

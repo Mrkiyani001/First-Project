@@ -7,6 +7,8 @@ use App\Http\Controllers\CommentsRepliesController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReactionController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RolePermissionController;
 use Illuminate\Support\Facades\Route;
 use Prism\Prism\Facades\Prism;
@@ -69,9 +71,12 @@ Route::group(['middleware' => ['api', 'auth:api']], function ($router) {
     Route::post('approve_post', [PostController::class, 'Approved'])->middleware('permission:posts approve');
     Route::post('reject_post', [PostController::class, 'Rejected'])->middleware('permission:posts reject');
     Route::get('pending_posts', [PostController::class, 'PendingPosts'])->middleware('permission:posts view pending');
+    
 
+    //Search Bar
+    Route::post('search_user', [AuthController::class, 'search_user']);
     // Profile 
-    Route::get('view/{id?}',[ProfileController::class, 'viewprofile']);
+    Route::post('view', [ProfileController::class, 'viewprofile']);
     Route::post('update_profile', [ProfileController::class, 'updateProfile']);
     Route::post('follow', [ProfileController::class, 'followUser']);
     Route::post('unfollow', [ProfileController::class, 'unfollowUser']);
@@ -93,6 +98,7 @@ Route::group(['middleware' => ['api', 'auth:api']], function ($router) {
     Route::delete('delete_post', [PostController::class, 'destroy'])->middleware('permission:delete posts');
     Route::post('get_post', [PostController::class, 'get_post'])->middleware('permission:view posts');
     Route::get('get_all_posts', [PostController::class, 'get_all_posts'])->middleware('permission:view posts');
+    Route::post('get_posts_by_user', [PostController::class, 'get_posts_by_user'])->middleware('permission:view posts');
     // Comment Routes
     Route::post('create_comment', [CommentsController::class, 'create'])->middleware('permission:comments create');
     Route::post('update_comment', [CommentsController::class, 'update'])->middleware('permission:comments update');
@@ -111,4 +117,13 @@ Route::group(['middleware' => ['api', 'auth:api']], function ($router) {
 
     // View Routes
     Route::post('add_view_to_post', [AddViewController::class, 'addView'])->middleware('permission:view posts');
+
+    // Report Routes
+    Route::post('report_content', [ReportController::class, 'createReport']);
+    Route::get('get_reports', [ReportController::class, 'getReports'])->middleware('permission:reports view');
+    Route::post('resolve_report', [ReportController::class, 'resolveReport'])->middleware('permission:reports resolve');
+
+    // Notification Routes
+    Route::get('get_user_notifications', [NotificationController::class, 'getUsersNotification']);
+    Route::get('get_admin_notifications', [NotificationController::class, 'getAdminNotification']);
 });

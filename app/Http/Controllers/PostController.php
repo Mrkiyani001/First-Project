@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\BaseController;
 use App\Jobs\AddPost;
 use App\Jobs\DeletePost;
+use App\Jobs\SendNotification;
 use App\Jobs\UpdatePost;
 use App\Models\Attachments;
 use Illuminate\Support\Facades\Auth;
@@ -45,6 +46,14 @@ class PostController extends BaseController
                 $request->title,
                 $request->body,
                 $attachments
+            );
+            SendNotification::dispatch(
+                $user->id,
+                'New Post',
+                'User ' . $user->id . ' created a new post.',
+                $user->id,
+                $user, // Notifiable is the User model
+                'Y'
             );
             return response()->json([
                 'success' => true,
@@ -195,17 +204,22 @@ class PostController extends BaseController
             ], 500);
         }
     }
-    public function get_all_posts()
+    public function get_all_posts(Request $request)
     {
         try {
+            $limit = (int) $request->input('limit', 10);
             $user = auth('api')->user();
             if (!$user) {
                 return $this->unauthorized();
             }
-            $posts = Post::approved()->with('attachments', 'creator', 'updator', 'user')->get();
+            $posts = Post::with('attachments', 'creator', 'updator', 'user')
+            ->orderby('created_at', 'desc')
+            ->paginate($limit);
+
+            $data = $this->paginateData($posts, $posts->items());
             return response()->json([
                 'success' => true,
-                'data' => $posts,
+                'data' => $data,
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -214,7 +228,8 @@ class PostController extends BaseController
             ], 500);
         }
     }
-    public function PendingPosts(){
+    public function PendingPosts()
+    {
         try {
             $user = auth('api')->user();
             if (!$user) {
@@ -232,7 +247,8 @@ class PostController extends BaseController
             ], 500);
         }
     }
-    public function Approved(Request $request){
+    public function Approved(Request $request)
+    {
         $this->validateRequest($request, [
             'id' => 'required|integer|exists:post,id',
         ]);
@@ -246,9 +262,9 @@ class PostController extends BaseController
             // die;
             // // Use withoutGlobalScopes to find pending posts hidden by strict moderation
             $post = Post::withoutGlobalScopes()->find($request->id);
-            
+
             if (!$post) {
-                 return response()->json([
+                return response()->json([
                     'success' => false,
                     'message' => 'Post not found',
                 ], 404);
@@ -267,7 +283,8 @@ class PostController extends BaseController
             ], 500);
         }
     }
-    public function Rejected(Request $request){
+    public function Rejected(Request $request)
+    {
         $this->validateRequest($request, [
             'id' => 'required|integer|exists:post,id',
         ]);
@@ -277,19 +294,63 @@ class PostController extends BaseController
                 return $this->unauthorized();
             }
             $post = Post::withoutGlobalScopes()->find($request->id);
-            
-             if (!$post) {
-                 return response()->json([
+
+            if (!$post) {
+                return response()->json([
                     'success' => false,
                     'message' => 'Post not found',
                 ], 404);
             }
-            
+
             $post->markRejected();
 
             return response()->json([
                 'success' => true,
                 'data' => $post,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    public function get_posts_by_user(Request $request)
+    {
+        $this->validateRequest($request, [
+            'user_id' => 'required|integer|exists:users,id',
+        ]);
+
+        try {
+            $user = auth('api')->user();
+            if (!$user) {
+                return $this->unauthorized();
+            }
+            $limit = (int) $request->input('limit', 10);
+
+            // Check if requesting own profile
+            if ($user->id == $request->user_id) {
+                // My Profile: Show ALL posts (Pending, Approved, Rejected)
+                $posts = Post::withoutGlobalScopes()
+                    ->where('user_id', $request->user_id)
+                    ->with('attachments', 'creator', 'updator', 'user')
+                    ->orderby('created_at', 'desc')
+                    ->paginate($limit);
+            }
+            if ($user->id != $request->user_id) {
+                // Other User's Profile: Show only Approved posts
+                $posts = Post::withoutGlobalScopes()
+                    ->where('user_id', $request->user_id)
+                    ->where('status', 1) // 1 = Approved
+                    ->with('attachments', 'creator', 'updator', 'user')
+                    ->orderby('created_at', 'desc')
+                    ->paginate($limit);
+            }
+
+            $data = $this->paginateData($posts, $posts->items());
+            return response()->json([
+                'success' => true,
+                'data' => $data,
             ], 200);
         } catch (\Exception $e) {
             return response()->json([

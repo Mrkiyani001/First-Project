@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Jobs\AddReaction;
 use App\Jobs\AddReactionToComment;
+use App\Jobs\SendNotification;
+use App\Models\Post;
 use Exception;
 use Illuminate\Http\Request;
 
@@ -20,11 +22,28 @@ class ReactionController extends BaseController
       if(!$user){
         return $this->response(false, 'Unauthorized',401);
       }
+
+      // ...
+
       AddReaction::dispatch(
         (int) $user->id,
         (int) $request->post_id,
         (int) $request->type,
       );
+
+      // Notification Logic
+      $post = Post::find($request->post_id);
+      if($post && $post->user_id != $user->id) { // Don't notify if reacting to own post
+          SendNotification::dispatch(
+              $user->id,
+              'New Reaction',
+              'User ' . $user->id . ' reacted to your post.',
+              $post->user_id,
+              $post,
+              'N'
+          );
+      }
+
       return $this->response(true, 'Reaction added successfully', null, 200);
         }catch(Exception $e){
             return $this->response(false, $e->getMessage(), null, 400);

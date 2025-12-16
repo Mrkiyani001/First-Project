@@ -160,15 +160,18 @@ class CommentsRepliesController extends BaseController
         ]);
         try {
             $user = auth('api')->user();
+            $limit = (int) $request->input('limit', 10);
             if (!$user) {
                 return $this->unauthorized();
             }
             $commentReplies = CommentReply::with('attachments', 'creator', 'updator', 'user', 'comment')
                 ->where('comment_id', $request->comment_id)
-                ->get();
+                ->paginate($limit);
+            
+            $data = $this->paginateData($commentReplies, $commentReplies->items());
             return response()->json([
                 'success' => true,
-                'data' => $commentReplies,
+                'data' => $data,
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
